@@ -8,6 +8,8 @@ init(Req=#{method := <<"GET">>}, State) ->
 	Params = cowboy_req:parse_qs(Req),
 	{Status, Values} = case Params of 
 		[{<<"id">>, OfferId}] ->
+			erlang:display(offer_exists(binary_to_list(OfferId))),
+			erlang:display(get_offer_price(binary_to_list(OfferId))),
 			find_offer_by_id(binary_to_list(OfferId));
 		[] -> 
 			F = fun (Offer, Acc) -> Acc1 = [map_to_json(Offer) | Acc], Acc1 end,
@@ -85,3 +87,17 @@ update_offer(Id, Offer) ->
 
 delete_offer_by_id(OfferId) ->
 	ok = db(offers, fun () -> dets:delete(records_db, OfferId) end).
+
+offer_exists(OfferId) ->
+	{Status, _} = find_offer_by_id(OfferId),
+	if Status == 200 -> ok;
+	true -> error end.
+
+get_offer_price(OfferId) ->
+	Offers = db(offers, fun() -> dets:lookup(records_db, OfferId) end),
+	case Offers of
+		[{_, Data}] -> 
+			{ok, {Price, float}} = maps:find(price, Data),
+			{ok, list_to_float(binary_to_list(Price))};
+		_ -> {error, 0.0}
+	end.
